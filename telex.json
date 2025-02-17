@@ -1,0 +1,10 @@
+{
+    "name": "Nigeria Weather Bot",
+    "type": "interval",
+    "description": "Sends periodic weather updates for Nigerian states.",
+    "config": {
+      "interval": 3600, 
+      "message": "Get the latest weather updates for Nigerian states!"
+    },
+    "webhook": "https://your-deployed-url.com/weather/"
+  }  
