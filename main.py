@@ -1,9 +1,12 @@
 import os
 import logging
 import requests
-from fastapi import FastAPI, HTTPException
-from config import TELEX_CONFIG
+import asyncio
+import httpx
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
+from typing import List
+from config import TELEX_CONFIG
 
 app = FastAPI()
 
@@ -23,10 +26,21 @@ NIGERIAN_STATES = [
 # Logging for debugging
 logging.basicConfig(level=logging.INFO)
 
-# Pydantic Model for Telex Messages
+# Pydantic Models
 class TelexMessage(BaseModel):
     chat: dict
     text: str
+
+class Setting(BaseModel):
+    label: str  # E.g., "state-1"
+    type: str   # E.g., "text"
+    required: bool
+    default: str  # E.g., "Lagos"
+
+class MonitorPayload(BaseModel):
+    channel_id: str
+    return_url: str
+    settings: List[Setting]
 
 def get_weather(city: str):
     """Fetch weather data for a single city (state)"""
@@ -51,10 +65,8 @@ def get_weather(city: str):
 def fetch_all_weather():
     """Fetch weather data for all Nigerian states"""
     weather_data = {}
-
     for state in NIGERIAN_STATES:
         weather_data[state] = get_weather(state)
-
     return {"Nigeria": weather_data}
 
 @app.get("/weather/{state}")
@@ -62,10 +74,8 @@ def fetch_weather_by_state(state: str):
     """Fetch weather for a specific Nigerian state"""
     if state.title() not in NIGERIAN_STATES:
         raise HTTPException(status_code=404, detail="State not found in Nigeria")
-
     return get_weather(state.title())
 
-# ✅ **Telex Target URL** → Handles Incoming Messages from Users
 @app.post("/target_url")
 async def telex_target(message: TelexMessage):
     chat_id = message.chat.get("id", 0)  # Avoid KeyError
@@ -82,29 +92,50 @@ async def telex_target(message: TelexMessage):
     else:
         response_text = "🤖 Welcome! Send `/weather Lagos` to get real-time weather updates."
 
-    # Return JSON response as required by Telex
     return {
         "method": "sendMessage",
         "chat_id": chat_id,
         "text": response_text,
     }
 
-# ✅ **Telex Tick URL** → Periodically Fetches Weather Updates
 @app.get("/tick_url")
 async def telex_tick():
     updates = []
-
     for state in NIGERIAN_STATES:
         weather_info = get_weather(state)
         updates.append(f"🌍 {state}: {weather_info['temperature']} - {weather_info['weather']}")
-
     message = "\n\n".join(updates)
+    return {"text": f"🚨 Daily Weather Updates 🌤️\n\n{message}"}
 
-    return {
-        "text": f"🚨 Daily Weather Updates 🌤️\n\n{message}",
+@app.post("/monitor_weather")
+async def monitor_weather(payload: MonitorPayload, background_tasks: BackgroundTasks):
+    """Monitor weather updates and send them to a webhook."""
+    background_tasks.add_task(monitor_task, payload)
+    return {"message": "Weather monitoring started."}
+
+async def monitor_task(payload: MonitorPayload):
+    """Fetch weather for specified states and send updates to the return URL."""
+    states = [s.default for s in payload.settings if s.label.startswith("state")]
+    
+    # Fetch weather data for the states
+    results = [get_weather(state) for state in states]
+
+    # Construct a message with the weather updates
+    message = "\n".join([f"🌍 {res['state']}: {res['temperature']} - {res['weather']}" for res in results if "error" not in res])
+
+    # Data format for Telex webhook
+    data = {
+        "message": message,
+        "username": "Weather Monitor",
+        "event_name": "Weather Update",
+        "status": "success"
     }
 
-# ✅ Home Route (App URL)
+    # Send update to the Telex return URL
+    async with httpx.AsyncClient() as client:
+        await client.post(payload.return_url, json=data)
+
+
 @app.get("/")
 def home():
     return {"message": "Telex Weather Bot is Running!"}
@@ -114,7 +145,6 @@ def get_config():
     """Returns Telex Integration Configuration"""
     return TELEX_CONFIG
 
-# Render Port Auto-Assignment
 if __name__ == "__main__":
     import uvicorn
     PORT = int(os.getenv("PORT", 10000))  # Use Render's assigned port or default to 10000

@@ -66,12 +66,12 @@ GET /weather/
 
 ✅ Expected Response:
 
-{
-  "Nigeria": {
-    "Lagos": {"temperature": "28°C", "weather": "Clear sky"},
-    "Abuja": {"temperature": "26°C", "weather": "Cloudy"}
-  }
-}
+
+  "Nigeria": 
+    "Lagos": "temperature": "28°C", "weather": "Clear sky",
+    "Abuja": "temperature": "26°C", "weather": "Cloudy"
+  
+
 
 3️⃣ Get Weather for a Specific State
 
@@ -83,11 +83,11 @@ GET /weather/Lagos
 
 ✅ Expected Response:
 
-{
+
   "state": "Lagos",
   "temperature": "28°C",
   "weather": "Clear sky"
-}
+
 
 4️⃣ Telex Target URL → Handles Incoming Messages
 
@@ -95,18 +95,18 @@ POST /target_url
 
 ✅ Sample Request Body:
 
-{
+
   "chat": {"id": 123456789},
   "text": "/weather Lagos"
-}
+
 
 ✅ Expected Response:
 
-{
+
   "method": "sendMessage",
   "chat_id": 123456789,
   "text": "🌍 Lagos Weather Update:\n🌡️ 28°C\n🌤️ Clear sky"
-}
+
 
 5️⃣ Telex Tick URL → Sends Periodic Weather Updates
 
@@ -114,7 +114,39 @@ GET /tick_url
 
 ✅ Expected Response:
 
-{
+
   "text": "🚨 Daily Weather Updates 🌤️\n\n🌍 Lagos: 28°C - Clear sky\n🌍 Abuja: 26°C - Cloudy"
-}
+
+
+## 🔥 Monitor Weather Updates with Telex
+
+To start monitoring weather updates for selected Nigerian states and send them to a Telex webhook, send the following `curl` request:
+
+```bash
+curl --location 'http://localhost:8000/monitor_weather' \
+--header 'Content-Type: application/json' \
+--data '{
+    "channel_id": "<your-test-telex-channel-id>",
+    "return_url": "https://ping.telex.im/v1/return/<your-test-telex-channel-id>",
+    "settings": [
+        {
+            "label": "state-1",
+            "type": "text",
+            "required": true,
+            "default": "Lagos"
+        },
+        {
+            "label": "state-2",
+            "type": "text",
+            "required": true,
+            "default": "Abuja"
+        },
+        {
+            "label": "interval",
+            "type": "text",
+            "required": true,
+            "default": "* * * * *"
+        }
+    ]
+}'
 
