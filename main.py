@@ -2,6 +2,7 @@ import os
 import logging
 import requests
 from fastapi import FastAPI, HTTPException
+from config import TELEX_CONFIG
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -107,6 +108,11 @@ async def telex_tick():
 @app.get("/")
 def home():
     return {"message": "Telex Weather Bot is Running!"}
+
+@app.get("/config")
+def get_config():
+    """Returns Telex Integration Configuration"""
+    return TELEX_CONFIG
 
 # Render Port Auto-Assignment
 if __name__ == "__main__":
