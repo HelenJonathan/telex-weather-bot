@@ -24,7 +24,7 @@ TELEGRAM_BOT_TOKEN = "7898793822:AAF7gi-gANw--gMzaql0nu2NVvAebYPDIrk"
 TELEGRAM_WEBHOOK_URL = "https://ping.telex.im/v1/webhooks/01951dd6-4527-74ee-bf0d-c2ef861d2c46"
 OPENWEATHER_API_KEY = "f5c4ba861d9a956dd29ca53cbc355dd9"
 BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
-TELEX_WEBHOOK_URL = "https://ping.telex.im/v1/webhooks/01951dd6-4527-74ee-bf0d-c2ef861d2c46"
+TELEX_WEBHOOK_URL = "https://ping.telex.im/v1/return/0195238f-0056-7995-a718-01ce92bb4e6e"
 
 # List of Nigerian states
 NIGERIAN_STATES = [
