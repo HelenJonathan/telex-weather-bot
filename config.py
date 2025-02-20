@@ -29,7 +29,7 @@ TELEX_CONFIG = {
         "settings": [
             {"label": "interval", "type": "text", "required": True, "default": "* * * * *"},
             {"label": "Key", "type": "text", "required": True, "default": ""},
-            {"label:: "chat id", "type": "text", "required": True, "default": ""}
+            {"label": "chat id", "type": "text", "required": True, "default": ""}
         ],
         "tick_url": "https://telex-weather-bot.onrender.com/tick_url",
         "target_url": "https://telex-weather-bot.onrender.com/target_url"
