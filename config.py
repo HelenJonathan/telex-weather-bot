@@ -14,10 +14,6 @@ TELEX_CONFIG = {
         "integration_category": "Monitoring & Logging",
         "integration_type": "interval",
         "is_active": True,
-        "output": [
-            {"label": "output_channel_1", "value": True},
-            {"label": "output_channel_2", "value": False}
-        ],
         "key_features": [
             "Get real-time weather updates.",
             "Fetch weather for all Nigerian states.",
@@ -32,13 +28,8 @@ TELEX_CONFIG = {
         },
         "settings": [
             {"label": "interval", "type": "text", "required": True, "default": "* * * * *"},
-            {"label": "Key", "type": "text", "required": True, "default": "1234567890"},
-            {"label": "Do you want to continue", "type": "checkbox", "required": True, "default": "Yes"},
-            {"label": "Provide Speed", "type": "number", "required": True, "default": "1000"},
-            {"label": "Sensitivity Level", "type": "dropdown", "required": True, "default": "Low",
-             "options": ["High", "Low"]},
-            {"label": "Alert Admin", "type": "multi-checkbox", "required": True, "default": "Super-Admin",
-             "options": ["Super-Admin", "Admin", "Manager", "Developer"]}
+            {"label": "Key", "type": "text", "required": True, "default": ""},
+            {"label:: "chat id", "type": "text", "required": True, "default": ""}
         ],
         "tick_url": "https://telex-weather-bot.onrender.com/tick_url",
         "target_url": "https://telex-weather-bot.onrender.com/target_url"
