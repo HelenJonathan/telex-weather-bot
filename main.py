@@ -76,7 +76,7 @@ def fetch_weather_by_state(state: str):
         raise HTTPException(status_code=404, detail="State not found in Nigeria")
     return get_weather(state.title())
 
-@app.post("/target_url")
+@app.get("/target_url")
 async def telex_target(message: TelexMessage):
     chat_id = message.chat.get("id", 0)  
     text = message.text.strip().lower()
@@ -98,7 +98,7 @@ async def telex_target(message: TelexMessage):
         "text": response_text,
     }
 
-@app.get("/tick_url")
+@app.post("/tick_url")
 async def telex_tick():
     updates = [f"🌍 {state}: {get_weather(state)['temperature']} - {get_weather(state)['weather']}" for state in NIGERIAN_STATES]
     return {"text": "🚨 Daily Weather Updates 🌤️\n\n" + "\n\n".join(updates)}
