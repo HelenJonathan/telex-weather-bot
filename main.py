@@ -7,24 +7,14 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import List
 from config import TELEX_CONFIG
-from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change this to specific origins for security
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # API Keys & URLs
 TELEGRAM_BOT_TOKEN = "7898793822:AAF7gi-gANw--gMzaql0nu2NVvAebYPDIrk"
 TELEGRAM_WEBHOOK_URL = "https://ping.telex.im/v1/webhooks/01951dd6-4527-74ee-bf0d-c2ef861d2c46"
 OPENWEATHER_API_KEY = "f5c4ba861d9a956dd29ca53cbc355dd9"
 BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
-TELEX_WEBHOOK_URL = "https://ping.telex.im/v1/return/0195238f-0056-7995-a718-01ce92bb4e6e"
 
 # List of Nigerian states
 NIGERIAN_STATES = [
@@ -101,16 +91,29 @@ async def telex_target(message: TelexMessage):
     else:
         response_text = "🤖 Welcome! Send `/weather Lagos` to get real-time weather updates."
 
-    return {
-        "method": "sendMessage",
-        "chat_id": chat_id,
-        "text": response_text,
-    }
+    # Send message to Telegram instead of local webhook
+    message_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": response_text}
+    
+    async with httpx.AsyncClient() as client:
+        await client.post(message_url, json=payload)  
+
+    url = "https://telex-weather-bot.onrender.com/send-webhook"
+    async with httpx.AsyncClient() as client:
+        await client.post(url)
+
+    return {"message": "Request sent to Telegram"}
 
 @app.get("/tick_url")
 async def telex_tick():
-    updates = [f"🌍 {state}: {get_weather(state)['temperature']} - {get_weather(state)['weather']}" for state in NIGERIAN_STATES]
-    return {"text": "🚨 Daily Weather Updates 🌤️\n\n" + "\n\n".join(updates)}
+    updates = []
+    for state in NIGERIAN_STATES:  # Indented correctly
+        weather_data = get_weather(state) or {}  # Ensure it's a dictionary
+        temperature = weather_data.get("temperature", "N/A")
+        condition = weather_data.get("weather", "Unknown")
+        updates.append(f"🌍 {state}: {temperature} - {condition}")
+    
+    return {"updates": updates}  # Ensure the function returns a response
 
 
 @app.post("/monitor_weather")
@@ -140,17 +143,17 @@ async def monitor_task(payload: MonitorPayload):
 def home():
     return {"message": "Telex Weather Bot is Running!"}
 
-async def send_telex_webhook():
+async def send_telex_webhook(payload: MonitorPayload):
     """Send a webhook request to Telex asynchronously."""
     payload = {
-        "event_name": "FastAPI Webhook",
-        "message": "This is a webhook request from FastAPI!",
+        "event_name": "Telex Weather Bot",
+        "message": "Weather Update Sent Successfully To Telegram",
         "status": "success",
-        "username": "helenefebe"
+        "username": "Telex Weather Bot"
     }
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(TELEX_WEBHOOK_URL, json=payload)
+        response = await client.post(payload.return_url, json=payload)
         return response.json()
 
 @app.post("/send-webhook")
@@ -163,32 +166,6 @@ async def trigger_webhook():
 def get_config():
     """Returns Telex Integration Configuration"""
     return TELEX_CONFIG
-
-# Telegram Webhook Integration
-@app.post("/webhook")
-async def telegram_webhook(request: Request):
-    update = await request.json()
-    
-    if "message" in update:
-        chat_id = update["message"]["chat"]["id"]
-        text = update["message"]["text"].strip().lower()
-
-        if text.startswith("/weather"):
-            parts = text.split(" ", 1)
-            if len(parts) > 1:
-                city = parts[1].title()
-                weather_info = get_weather(city)
-                response_text = f"🌍 {weather_info['state']} Weather Update:\n🌡️ {weather_info['temperature']}\n🌤️ {weather_info['weather']}"
-            else:
-                response_text = "⚠️ Please provide a state name.\nExample: `/weather Lagos`"
-        else:
-            response_text = "🤖 Welcome! Send `/weather Lagos` to get real-time weather updates."
-
-        message_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {"chat_id": chat_id, "text": response_text}
-        requests.post(message_url, json=payload)
-
-    return {"ok": True}
 
 if __name__ == "__main__":
     import uvicorn
