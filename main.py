@@ -3,19 +3,21 @@ import logging
 import requests
 import asyncio
 import httpx
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import List
 from config import TELEX_CONFIG
 
 app = FastAPI()
 
-# OpenWeather API Key
+# API Keys & URLs
 TELEGRAM_BOT_TOKEN = "7898793822:AAF7gi-gANw--gMzaql0nu2NVvAebYPDIrk"
+TELEGRAM_WEBHOOK_URL = "https://ping.telex.im/v1/webhooks/01951dd6-4527-74ee-bf0d-c2ef861d2c46"
 OPENWEATHER_API_KEY = "f5c4ba861d9a956dd29ca53cbc355dd9"
 BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
+TELEX_WEBHOOK_URL = "https://ping.telex.im/v1/webhooks/01951dd6-4527-74ee-bf0d-c2ef861d2c46"
 
-# List of all 36 Nigerian states + FCT
+# List of Nigerian states
 NIGERIAN_STATES = [
     "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River", 
     "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina",
@@ -23,7 +25,7 @@ NIGERIAN_STATES = [
     "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT"
 ]
 
-# Logging for debugging
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 
 # Pydantic Models
@@ -32,10 +34,10 @@ class TelexMessage(BaseModel):
     text: str
 
 class Setting(BaseModel):
-    label: str  # E.g., "state-1"
-    type: str   # E.g., "text"
+    label: str  
+    type: str   
     required: bool
-    default: str  # E.g., "Lagos"
+    default: str  
 
 class MonitorPayload(BaseModel):
     channel_id: str
@@ -45,7 +47,7 @@ class MonitorPayload(BaseModel):
 def get_weather(city: str):
     """Fetch weather data for a single city (state)"""
     params = {
-        "q": city + ",NG",  # Ensure it searches within Nigeria
+        "q": city + ",NG",
         "appid": OPENWEATHER_API_KEY,
         "units": "metric"
     }
@@ -64,9 +66,7 @@ def get_weather(city: str):
 @app.get("/weather/")
 def fetch_all_weather():
     """Fetch weather data for all Nigerian states"""
-    weather_data = {}
-    for state in NIGERIAN_STATES:
-        weather_data[state] = get_weather(state)
+    weather_data = {state: get_weather(state) for state in NIGERIAN_STATES}
     return {"Nigeria": weather_data}
 
 @app.get("/weather/{state}")
@@ -78,13 +78,13 @@ def fetch_weather_by_state(state: str):
 
 @app.post("/target_url")
 async def telex_target(message: TelexMessage):
-    chat_id = message.chat.get("id", 0)  # Avoid KeyError
+    chat_id = message.chat.get("id", 0)  
     text = message.text.strip().lower()
 
     if text.startswith("/weather"):
         parts = text.split(" ", 1)
         if len(parts) > 1:
-            city = parts[1].title()  # Capitalize city name
+            city = parts[1].title()
             weather_info = get_weather(city)
             response_text = f"🌍 {weather_info['state']} Weather Update:\n🌡️ {weather_info['temperature']}\n🌤️ {weather_info['weather']}"
         else:
@@ -100,12 +100,9 @@ async def telex_target(message: TelexMessage):
 
 @app.get("/tick_url")
 async def telex_tick():
-    updates = []
-    for state in NIGERIAN_STATES:
-        weather_info = get_weather(state)
-        updates.append(f"🌍 {state}: {weather_info['temperature']} - {weather_info['weather']}")
-    message = "\n\n".join(updates)
-    return {"text": f"🚨 Daily Weather Updates 🌤️\n\n{message}"}
+    updates = [f"🌍 {state}: {get_weather(state)['temperature']} - {get_weather(state)['weather']}" for state in NIGERIAN_STATES]
+    return {"text": "🚨 Daily Weather Updates 🌤️\n\n" + "\n\n".join(updates)}
+
 
 @app.post("/monitor_weather")
 async def monitor_weather(payload: MonitorPayload, background_tasks: BackgroundTasks):
@@ -116,14 +113,10 @@ async def monitor_weather(payload: MonitorPayload, background_tasks: BackgroundT
 async def monitor_task(payload: MonitorPayload):
     """Fetch weather for specified states and send updates to the return URL."""
     states = [s.default for s in payload.settings if s.label.startswith("state")]
-    
-    # Fetch weather data for the states
     results = [get_weather(state) for state in states]
 
-    # Construct a message with the weather updates
     message = "\n".join([f"🌍 {res['state']}: {res['temperature']} - {res['weather']}" for res in results if "error" not in res])
 
-    # Data format for Telex webhook
     data = {
         "message": message,
         "username": "Weather Monitor",
@@ -131,21 +124,64 @@ async def monitor_task(payload: MonitorPayload):
         "status": "success"
     }
 
-    # Send update to the Telex return URL
     async with httpx.AsyncClient() as client:
         await client.post(payload.return_url, json=data)
-
 
 @app.get("/")
 def home():
     return {"message": "Telex Weather Bot is Running!"}
+
+async def send_telex_webhook():
+    """Send a webhook request to Telex asynchronously."""
+    payload = {
+        "event_name": "FastAPI Webhook",
+        "message": "This is a webhook request from FastAPI!",
+        "status": "success",
+        "username": "helenefebe"
+    }
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(TELEX_WEBHOOK_URL, json=payload)
+        return response.json()
+
+@app.post("/send-webhook")
+async def trigger_webhook():
+    """Endpoint to trigger the webhook request."""
+    response = await send_telex_webhook()
+    return {"message": "Webhook sent!", "response": response}
 
 @app.get("/config")
 def get_config():
     """Returns Telex Integration Configuration"""
     return TELEX_CONFIG
 
+# Telegram Webhook Integration
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    update = await request.json()
+    
+    if "message" in update:
+        chat_id = update["message"]["chat"]["id"]
+        text = update["message"]["text"].strip().lower()
+
+        if text.startswith("/weather"):
+            parts = text.split(" ", 1)
+            if len(parts) > 1:
+                city = parts[1].title()
+                weather_info = get_weather(city)
+                response_text = f"🌍 {weather_info['state']} Weather Update:\n🌡️ {weather_info['temperature']}\n🌤️ {weather_info['weather']}"
+            else:
+                response_text = "⚠️ Please provide a state name.\nExample: `/weather Lagos`"
+        else:
+            response_text = "🤖 Welcome! Send `/weather Lagos` to get real-time weather updates."
+
+        message_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {"chat_id": chat_id, "text": response_text}
+        requests.post(message_url, json=payload)
+
+    return {"ok": True}
+
 if __name__ == "__main__":
     import uvicorn
-    PORT = int(os.getenv("PORT", 10000))  # Use Render's assigned port or default to 10000
+    PORT = int(os.getenv("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=PORT)
