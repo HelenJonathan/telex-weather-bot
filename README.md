@@ -1,152 +1,130 @@
-🌦️ Telex Weather Bot
+# Telex Weather Bot API
 
-📌 Project Overview
+## Overview
+The **Telex Weather Bot** is a FastAPI-based application that provides real-time weather updates for Nigerian states. The bot fetches weather data from OpenWeather API and integrates with Telegram and Telex webhooks to deliver updates.
 
-Telex Weather Bot is a FastAPI-based application that provides real-time weather updates for all 36 Nigerian states and the Federal Capital Territory (FCT). It integrates with Telex to support automatic updates via a tick URL and allows users to request weather information via a target URL.
+## Features
+- Fetch weather updates for all Nigerian states
+- Get weather details for a specific state
+- Telegram bot integration for weather queries
+- Telex webhook integration for real-time updates
+- Background monitoring of weather conditions
 
-🚀 Features
+## Installation
 
-🌍 Fetch real-time weather data for all Nigerian states
+### Prerequisites
+Ensure you have the following installed:
+- Python 3.8+
+- pip (Python package manager)
 
-📡 Telex Integration:
+### Clone the Repository
+```sh
+ git clone https://github.com/your-repo/telex-weather-bot.git
+ cd telex-weather-bot
+```
 
-Target URL (/target_url) → Handles user queries via Telex
-
-Tick URL (/tick_url) → Sends periodic weather updates
-
-🛠 Built with FastAPI for high performance
-
-☁️ Uses OpenWeather API for weather data
-
-🔄 Supports deployment on Render
-
-🏗️ Tech Stack
-
-Backend: FastAPI (Python)
-
-Weather API: OpenWeather API
-
-Deployment: Render
-
-🔑 Environment Variables
-
-Before running the project, set up the following environment variables:
-
-OPENWEATHER_API_KEY=your_openweather_api_key
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-
-🚀 Getting Started
-
-📥 1. Clone the Repository
-
-git clone https://github.com/HelenJonathan/telex-weather-bot
-cd telex-weather-bot
-
-🛠️ 2. Install Dependencies
-
+### Install Dependencies
+```sh
 pip install -r requirements.txt
+```
 
-🌍 3. Run the Application
+## Configuration
 
+### Environment Variables
+Create a `.env` file and add the following configurations:
+```env
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+OPENWEATHER_API_KEY=your_openweather_api_key
+TELEGRAM_WEBHOOK_URL=your_telegram_webhook_url
+```
+
+### Running the Application
+```sh
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-📡 API Endpoints
+## API Endpoints
 
-1️⃣ Check if the API is Running
+### 1. Fetch Weather for All Nigerian States
+**Endpoint:** `GET /weather/`
 
-GET /
+**Response:**
+```json
+{
+  "Nigeria": {
+    "Lagos": {
+      "state": "Lagos",
+      "temperature": "29°C",
+      "weather": "Clear sky"
+    },
+    "Abuja": {
+      "state": "Abuja",
+      "temperature": "25°C",
+      "weather": "Cloudy"
+    }
+  }
+}
+```
 
-✅ Expected Response:
+### 2. Fetch Weather for a Specific State
+**Endpoint:** `GET /weather/{state}`
 
-{"message": "Telex Weather Bot is Running!"}
+**Example Request:**
+```sh
+curl -X GET "http://localhost:8000/weather/Lagos"
+```
 
-2️⃣ Get Weather for All Nigerian States
-
-GET /weather/
-
-✅ Expected Response:
-
-
-  "Nigeria": 
-    "Lagos": "temperature": "28°C", "weather": "Clear sky",
-    "Abuja": "temperature": "26°C", "weather": "Cloudy"
-  
-
-
-3️⃣ Get Weather for a Specific State
-
-GET /weather/{state}
-
-🔹 Example:
-
-GET /weather/Lagos
-
-✅ Expected Response:
-
-
+**Example Response:**
+```json
+{
   "state": "Lagos",
-  "temperature": "28°C",
-  "weather": "Clear sky"
+  "temperature": "30°C",
+  "weather": "Sunny"
+}
+```
 
+### 3. Receive Weather Updates via Telegram Bot
+- Send `/weather Lagos` to the bot to get the weather for Lagos.
+- If no state is provided, the bot prompts the user with an example command.
 
-4️⃣ Telex Target URL → Handles Incoming Messages
+### 4. Webhook Integration with Telex
+**Endpoint:** `POST /target_url`
 
-POST /target_url
-
-✅ Sample Request Body:
-
-
-  "chat": {"id": 123456789},
+**Payload Example:**
+```json
+{
+  "chat": { "id": 123456789 },
   "text": "/weather Lagos"
+}
+```
 
+**Response:**
+```json
+{
+  "message": "Request sent to Telegram"
+}
+```
 
-✅ Expected Response:
+### 5. Monitor Weather Updates
+**Endpoint:** `POST /monitor_weather`
 
+**Payload Example:**
+```json
+{
+  "channel_id": "12345",
+  "return_url": "https://your-webhook-url.com",
+  "settings": [
+    { "label": "state", "type": "string", "required": true, "default": "Lagos" }
+  ]
+}
+```
 
-  "method": "sendMessage",
-  "chat_id": 123456789,
-  "text": "🌍 Lagos Weather Update:\n🌡️ 28°C\n🌤️ Clear sky"
+**Response:**
+```json
+{
+  "message": "Weather monitoring started."
+}
+```
 
-
-5️⃣ Telex Tick URL → Sends Periodic Weather Updates
-
-GET /tick_url
-
-✅ Expected Response:
-
-
-  "text": "🚨 Daily Weather Updates 🌤️\n\n🌍 Lagos: 28°C - Clear sky\n🌍 Abuja: 26°C - Cloudy"
-
-
-## 🔥 Monitor Weather Updates with Telex
-
-To start monitoring weather updates for selected Nigerian states and send them to a Telex webhook, send the following `curl` request:
-
-```bash
-curl --location 'http://localhost:8000/monitor_weather' \
---header 'Content-Type: application/json' \
---data '{
-    "channel_id": "<your-test-telex-channel-id>",
-    "return_url": "https://ping.telex.im/v1/return/<your-test-telex-channel-id>",
-    "settings": [
-        {
-            "label": "state-1",
-            "type": "text",
-            "required": true,
-            "default": "Lagos"
-        },
-        {
-            "label": "state-2",
-            "type": "text",
-            "required": true,
-            "default": "Abuja"
-        },
-        {
-            "label": "interval",
-            "type": "text",
-            "required": true,
-            "default": "* * * * *"
-        }
-    ]
-}'
-
+## Deployment
+To deploy the application, use a cloud platform such as Render, Heroku, or AWS. Ensure that the necessary environment variables are configured correctly.
